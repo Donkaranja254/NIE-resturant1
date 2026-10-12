@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NIE Catering – Student</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍽️</text></svg>">
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-brand">
+      <div class="header-logo">🍽️</div>
+      <div>
+        <h1>NIE Catering</h1>
+        <span class="role-tag">Student</span>
+      </div>
+    </div>
+    <div class="header-user">
+      <span class="user-name" id="userName"></span>
+      <button class="logout-btn" onclick="logout()">Sign out</button>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <!-- Today's menu -->
+    <section class="card">
+      <div class="card-header">
+        <h2 class="card-title"><span class="emoji">🥗</span> Today's menu</h2>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span class="date-badge" id="todayDate"></span>
+          <span class="price-pill">KES 50</span>
+        </div>
+      </div>
+
+      <div id="menuArea">
+        <div class="empty-state">
+          <div class="empty-icon">⏳</div>
+          <p>Loading menu…</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- History -->
+    <section class="card">
+      <div class="card-header">
+        <h2 class="card-title"><span class="emoji">📋</span> Your bookings</h2>
+      </div>
+      <div id="historyArea" class="history-list">
+        <div class="empty-state small">
+          <div class="empty-icon">📭</div>
+          <p>No bookings yet</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="js/app.js"></script>
+  <script>
+    const user = getCurrentUser();
+    if (!user || user.role !== 'student') {
+      window.location.href = 'index.html';
+    }
+
+    document.getElementById('userName').textContent = user.name;
+    document.getElementById('todayDate').textContent = formatDate(getTodayDateStr());
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2800);
+    }
+
+    function loadMenu() {
+      const menu = getTodayMenu();
+      const area = document.getElementById('menuArea');
+      const bookings = getBookings();
+      const myBooking = bookings.find(b => b.studentPhone === user.phone && b.date === getTodayDateStr());
+
+      if (!menu || !menu.items || menu.items.length === 0) {
+        area.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">🍳</div>
+            <p>No menu posted yet.<br>Check back when the kitchen publishes today's dishes.</p>
+          </div>`;
+        return;
+      }
+
+      if (menu.closed && !myBooking) {
+        area.innerHTML = `
+          <div class="status-banner warning">
+            <span class="icon">🔒</span>
+            <div>Booking is closed for today. The kitchen is full or service has started.</div>
+          </div>
+          <div class="menu-list menu-closed-overlay">
+            ${menu.items.map(item => `
+              <div class="menu-item">
+                <span class="item-name">${item}</span>
+              </div>
+            `).join('')}
+          </div>
+          ${menu.note ? `<div class="note-box">${menu.note}</div>` : ''}`;
+        return;
+      }
+
+      const selected = myBooking ? myBooking.items : [];
+      const isCollected = myBooking && myBooking.collected;
+
+      let html = '';
+      if (myBooking) {
+        html += `
+          <div class="status-banner ${isCollected ? 'success' : 'info'}">
+            <span class="icon">${isCollected ? '✅' : '🎫'}</span>
+            <div>
+              ${isCollected
+                ? 'Plate collected. Enjoy your meal!'
+                : 'You have a booking today. You can still change it until the kitchen closes the list.'}
+            </div>
+          </div>`;
+      }
+
+      if (menu.note) {
+        html += `<div class="note-box" style="margin-bottom:14px">${menu.note}</div>`;
+      }
+
+      html += `
+        <div class="select-all-row">
+          <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this.checked)">
+          <label for="selectAll">Select all dishes</label>
+        </div>
+        <div class="menu-list" id="dishList">
+          ${menu.items.map(item => {
+            const checked = selected.includes(item);
+            return `
+              <label class="menu-item ${checked ? 'selected' : ''}">
+                <input type="checkbox" value="${item.replace(/"/g, '&quot;')}" ${checked ? 'checked' : ''}
+                  onchange="onDishToggle(this)" ${isCollected ? 'disabled' : ''}>
+                <span class="item-name">${item}</span>
+              </label>`;
+          }).join('')}
+        </div>
+        <div class="form-group" style="margin-bottom:14px">
+          <label for="noteInput">Note for the kitchen (optional)</label>
+          <textarea id="noteInput" placeholder="e.g. No chilli, extra ugali…" ${isCollected ? 'disabled' : ''}>${myBooking ? (myBooking.note || '') : ''}</textarea>
+        </div>
+        <button class="book-btn" id="bookBtn" onclick="bookMeal()" ${isCollected ? 'disabled' : ''}>
+          ${myBooking ? 'Update booking' : 'Book plate · KES 50'}
+        </button>`;
+
+      area.innerHTML = html;
+      syncSelectAll();
+    }
+
+    function onDishToggle(cb) {
+      const label = cb.closest('.menu-item');
+      label.classList.toggle('selected', cb.checked);
+      syncSelectAll();
+    }
+
+    function syncSelectAll() {
+      const boxes = document.querySelectorAll('#dishList input[type=checkbox]');
+      const all = document.getElementById('selectAll');
+      if (!all || !boxes.length) return;
+      all.checked = [...boxes].every(b => b.checked);
+    }
+
+    function toggleSelectAll(on) {
+      document.querySelectorAll('#dishList input[type=checkbox]').forEach(b => {
+        if (b.disabled) return;
+        b.checked = on;
+        b.closest('.menu-item').classList.toggle('selected', on);
+      });
+    }
+
+    function bookMeal() {
+      const boxes = document.querySelectorAll('#dishList input[type=checkbox]:checked');
+      const items = [...boxes].map(b => b.value);
+      if (items.length === 0) {
+        showToast('Select at least one dish');
+        return;
+      }
+      const note = (document.getElementById('noteInput')?.value || '').trim();
+      const date = getTodayDateStr();
+      let bookings = getBookings();
+      const idx = bookings.findIndex(b => b.studentPhone === user.phone && b.date === date);
+
+      if (idx >= 0) {
+        if (bookings[idx].collected) {
+          showToast('Already collected — cannot change');
+          return;
+        }
+        bookings[idx].items = items;
+        bookings[idx].note = note;
+        bookings[idx].studentName = user.name;
+      } else {
+        const menu = getTodayMenu();
+        if (menu && menu.closed) {
+          showToast('Booking is closed for today');
+          return;
+        }
+        bookings.push({
+          studentName: user.name,
+          studentPhone: user.phone,
+          date,
+          items,
+          note,
+          collected: false,
+          bookedAt: new Date().toISOString()
+        });
+      }
+      localStorage.setItem('bookings', JSON.stringify(bookings));
+      showToast(idx >= 0 ? 'Booking updated ✓' : 'Plate booked · pay KES 50 on collection');
+      loadMenu();
+      loadHistory();
+    }
+
+    function loadHistory() {
+      const bookings = getBookings()
+        .filter(b => b.studentPhone === user.phone)
+        .sort((a, b) => b.date.localeCompare(a.date));
+      const area = document.getElementById('historyArea');
+      if (bookings.length === 0) {
+        area.innerHTML = `
+          <div class="empty-state small">
+            <div class="empty-icon">📭</div>
+            <p>No bookings yet</p>
+          </div>`;
+        return;
+      }
+      area.innerHTML = bookings.map(b => `
+        <div class="history-card">
+          <div class="history-meta">
+            <span class="history-date">${formatDate(b.date)}</span>
+            <span class="badge ${b.collected ? 'collected' : 'pending'}">${b.collected ? 'Collected' : 'Pending'}</span>
+          </div>
+          <div class="history-items">${b.items.join(' · ')}</div>
+          ${b.note ? `<div class="note-box" style="margin-top:8px">${b.note}</div>` : ''}
+        </div>
+      `).join('');
+    }
+
+    loadMenu();
+    loadHistory();
+  </script>
+</body>
+</html>

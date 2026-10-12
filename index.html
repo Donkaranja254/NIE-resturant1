@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NIE Catering – Sign in</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍽️</text></svg>">
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-card">
+      <div class="logo">
+        <div class="logo-icon">🍽️</div>
+        <h1>NIE Catering</h1>
+        <p class="subtitle">Daily meal booking for students</p>
+        <span class="location">📍 VX25+XJ Ruiru</span>
+      </div>
+
+      <div class="role-toggle">
+        <button type="button" class="role-btn active" id="studentTab" onclick="switchRole('student')">Student</button>
+        <button type="button" class="role-btn" id="adminTab" onclick="switchRole('admin')">Admin</button>
+      </div>
+
+      <div id="errorMsg" class="error-msg"></div>
+
+      <!-- Student form -->
+      <form class="login-form" id="studentForm" onsubmit="return studentLogin(event)">
+        <div class="form-group">
+          <label for="studentName">Full name</label>
+          <input type="text" id="studentName" placeholder="e.g. Jane Wanjiku" required autocomplete="name">
+        </div>
+        <div class="form-group">
+          <label for="studentPhone">Phone number</label>
+          <input type="tel" id="studentPhone" placeholder="0712 345 678" required autocomplete="tel">
+          <span class="hint">No password needed — name + phone is enough</span>
+        </div>
+        <button type="submit" class="submit-btn">Continue as student →</button>
+      </form>
+
+      <!-- Admin form -->
+      <form class="login-form hidden" id="adminForm" onsubmit="return adminLogin(event)">
+        <div class="form-group">
+          <label for="adminName">Full name</label>
+          <input type="text" id="adminName" placeholder="e.g. Chef Kamau" required autocomplete="name">
+        </div>
+        <div class="form-group">
+          <label for="adminPhone">Phone number</label>
+          <input type="tel" id="adminPhone" placeholder="0712 345 678" required autocomplete="tel">
+        </div>
+        <div class="form-group">
+          <label for="adminPassword">Password</label>
+          <input type="password" id="adminPassword" placeholder="At least 4 characters" required minlength="4" autocomplete="current-password">
+          <span class="hint">First sign-in on a phone sets the password</span>
+        </div>
+        <button type="submit" class="submit-btn">Sign in as admin →</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    function switchRole(role) {
+      document.getElementById('studentTab').classList.toggle('active', role === 'student');
+      document.getElementById('adminTab').classList.toggle('active', role === 'admin');
+      document.getElementById('studentForm').classList.toggle('hidden', role !== 'student');
+      document.getElementById('adminForm').classList.toggle('hidden', role !== 'admin');
+      hideError();
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('errorMsg');
+      el.textContent = msg;
+      el.classList.add('show');
+    }
+
+    function hideError() {
+      document.getElementById('errorMsg').classList.remove('show');
+    }
+
+    function normalizePhone(raw) {
+      let p = (raw || '').replace(/\s+/g, '').replace(/^\+/, '');
+      if (p.startsWith('254') && p.length === 12) p = '0' + p.slice(3);
+      if (p.length === 9 && p.startsWith('7')) p = '0' + p;
+      if (!/^0[17]\d{8}$/.test(p)) return null;
+      return p;
+    }
+
+    function studentLogin(e) {
+      e.preventDefault();
+      hideError();
+      const name = document.getElementById('studentName').value.trim();
+      const phone = normalizePhone(document.getElementById('studentPhone').value);
+      if (name.length < 2) { showError('Please enter your full name.'); return false; }
+      if (!phone) { showError('Enter a valid Kenyan mobile, e.g. 0712 345 678'); return false; }
+      localStorage.setItem('currentUser', JSON.stringify({ role: 'student', name, phone }));
+      window.location.href = 'student.html';
+      return false;
+    }
+
+    function adminLogin(e) {
+      e.preventDefault();
+      hideError();
+      const name = document.getElementById('adminName').value.trim();
+      const phone = normalizePhone(document.getElementById('adminPhone').value);
+      const password = document.getElementById('adminPassword').value;
+      if (name.length < 2) { showError('Please enter your full name.'); return false; }
+      if (!phone) { showError('Enter a valid Kenyan mobile, e.g. 0712 345 678'); return false; }
+      if (password.length < 4) { showError('Password must be at least 4 characters.'); return false; }
+
+      let admins = JSON.parse(localStorage.getItem('admins') || '[]');
+      const existing = admins.find(a => a.phone === phone);
+      if (existing) {
+        if (existing.password !== password) {
+          showError('Incorrect password for this phone number.');
+          return false;
+        }
+        existing.name = name;
+      } else {
+        admins.push({ name, phone, password });
+      }
+      localStorage.setItem('admins', JSON.stringify(admins));
+      localStorage.setItem('currentUser', JSON.stringify({ role: 'admin', name, phone }));
+      window.location.href = 'admin.html';
+      return false;
+    }
+
+    // Auto-fill if returning
+    (function () {
+      const u = getCurrentUser();
+      if (!u) return;
+      if (u.role === 'student') {
+        document.getElementById('studentName').value = u.name || '';
+        document.getElementById('studentPhone').value = u.phone || '';
+      } else if (u.role === 'admin') {
+        switchRole('admin');
+        document.getElementById('adminName').value = u.name || '';
+        document.getElementById('adminPhone').value = u.phone || '';
+      }
+    })();
+  </script>
+</body>
+</html>
