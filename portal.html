@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NIE Catering | Secure Portal</title>
+<link rel="stylesheet" href="css/portal.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+</head>
+<body>
+<header><div><strong>🍽️ NIE Catering</strong><small>Secure ordering portal</small></div><button id="signOut" class="secondary" hidden>Sign out</button></header>
+<main>
+<section id="configWarning" class="panel warning" hidden>Setup required: create <code>js/config.js</code> from <code>js/config.example.js</code> and add your Supabase project URL and anon key.</section>
+<section id="authPanel" class="panel">
+<h1>Welcome</h1><p>Sign in or create your customer account using your phone number.</p>
+<div class="tabs"><button id="showLogin" class="active">Sign in</button><button id="showSignup">Create account</button></div>
+<form id="authForm">
+<label id="nameWrap" hidden>Full name<input id="fullName" autocomplete="name"></label>
+<label>Phone number<input id="phone" type="tel" placeholder="+2547XXXXXXXX" autocomplete="tel" required></label>
+<label>Password<input id="password" type="password" minlength="8" autocomplete="current-password" required></label>
+<button id="authSubmit" type="submit">Sign in</button>
+</form><p id="authMessage" class="message" aria-live="polite"></p>
+</section>
+<section id="appPanel" hidden>
+<div class="welcome"><div><h1 id="hello"></h1><p id="roleLabel"></p></div><span class="price">KES 50 / plate</span></div>
+<section id="customerView" class="panel" hidden><h2>Today's menu</h2><p id="serviceDate"></p><div id="menuItems"></div><label>Note for kitchen<textarea id="kitchenNote" rows="2" placeholder="Optional instructions"></textarea></label><button id="placeOrder">Place order · KES 50</button><h2>Your recent orders</h2><div id="myOrders"></div></section>
+<section id="staffView" class="panel" hidden><h2>Kitchen orders</h2><p>Update each order as it moves through preparation and collection.</p><div id="staffOrders"></div></section>
+<section id="adminView" class="panel" hidden><h2>Publish today's menu</h2><label>Dishes (one per line)<textarea id="dishNames" rows="5" placeholder="Rice&#10;Beef stew&#10;Vegetables"></textarea></label><label>Kitchen note<textarea id="menuNote" rows="2"></textarea></label><button id="publishMenu">Publish menu</button><div class="divider"></div><h2>Daily orders</h2><div id="adminOrders"></div></section>
+</section>
+<p id="globalMessage" class="message" aria-live="polite"></p>
+</main><script src="js/portal.js"></script>
+</body></html>
